@@ -1,0 +1,42 @@
+name: Cloud.gov Audit Logs Export
+
+on:
+  schedule:
+    - cron: '0 0 * * MON'  # Run every Monday at midnight
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  export-audit-logs:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+    
+    - name: Install cf CLI
+      run: |
+        wget -q -O - https://packages.cloudfoundry.org/debian/cli.cloudfoundry.org.key | sudo apt-key add -
+        echo "deb https://packages.cloudfoundry.org/debian stable main" | sudo tee /etc/apt/sources.list.d/cloudfoundry-cli.list
+        sudo apt-get update
+        sudo apt-get install cf8-cli
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas
+    
+    - name: Run audit log export
+      env:
+        CF_USERNAME: ${{ secrets.CF_USERNAME }}
+        CF_PASSWORD: ${{ secrets.CF_PASSWORD }}
+      run: python scripts/export_audit_logs.py
+    
+    - name: Upload CSV artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: audit-logs
+        path: exports/*.csv
