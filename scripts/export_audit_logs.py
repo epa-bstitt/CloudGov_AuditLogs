@@ -67,7 +67,7 @@ def get_audit_logs():
             f.write('sep=,\n')
             
             # Get events from cloud.gov
-            events_cmd = ['cf', 'get-events', '--from', last_week]
+            events_cmd = ['cf', 'events']
             result = subprocess.run(events_cmd, capture_output=True, text=True, check=True)
             
             # Write the output to file
