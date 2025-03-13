@@ -114,30 +114,43 @@ def process_audit_logs(filename):
     try:
         logger.info(f'Processing audit logs from {filename}')
         # Read the CSV file
-        df = pd.read_csv(filename, skiprows=1)  # Skip the sep=, line
+        df = pd.read_csv(filename)
         
-        # Security checks
-        # 1. Check for failed login attempts
-        failed_logins = df[df['type'].str.contains('LoginFailure', na=False)]
-        
-        # 2. Check for unauthorized access attempts
-        unauthorized_access = df[df['type'].str.contains('Unauthorized', na=False)]
-        
-        # 3. Check for suspicious activity patterns
-        suspicious_activity = df[
-            (df['type'].str.contains('Delete', na=False)) |
-            (df['type'].str.contains('Update', na=False)) |
-            (df['type'].str.contains('Create', na=False))
-        ]
-        
-        # Create processed dataframe with findings
-        processed_df = pd.DataFrame({
-            'Date': today.strftime('%Y-%m-%d'),
-            'Total Events': len(df),
-            'Failed Logins': len(failed_logins),
-            'Unauthorized Access': len(unauthorized_access),
-            'Suspicious Activities': len(suspicious_activity)
-        }, index=[0])
+        # If the file is empty or only contains 'No events found', create an empty report
+        if df.empty or (len(df) == 1 and df.iloc[0].str.contains('No events found').any()):
+            logger.info('No events found in the audit logs')
+            processed_df = pd.DataFrame({
+                'Date': [datetime.now().strftime('%Y-%m-%d')],
+                'Total Events': [0],
+                'Failed Logins': [0],
+                'Unauthorized Access': [0],
+                'Suspicious Activities': [0],
+                'Status': ['No events found in the specified time range']
+            })
+        else:
+            # Security checks
+            # 1. Check for failed login attempts
+            failed_logins = df[df['type'].str.contains('LoginFailure', na=False, case=False)]
+            
+            # 2. Check for unauthorized access attempts
+            unauthorized_access = df[df['type'].str.contains('Unauthorized', na=False, case=False)]
+            
+            # 3. Check for suspicious activity patterns
+            suspicious_activity = df[
+                (df['type'].str.contains('Delete', na=False, case=False)) |
+                (df['type'].str.contains('Update', na=False, case=False)) |
+                (df['type'].str.contains('Create', na=False, case=False))
+            ]
+            
+            # Create processed dataframe with findings
+            processed_df = pd.DataFrame({
+                'Date': [datetime.now().strftime('%Y-%m-%d')],
+                'Total Events': [len(df)],
+                'Failed Logins': [len(failed_logins)],
+                'Unauthorized Access': [len(unauthorized_access)],
+                'Suspicious Activities': [len(suspicious_activity)],
+                'Status': ['Events found and processed']
+            })
         
         # Save processed results
         processed_filename = str(filename).replace('.csv', '_processed.csv')
@@ -146,8 +159,8 @@ def process_audit_logs(filename):
         logger.info(f'Successfully processed audit logs and saved to {processed_filename}')
         return processed_filename
     except Exception as e:
-        logger.error(f'Failed to process audit logs: {e}')
-        raise
+        logger.error(f'Failed to process audit logs: {str(e)}')
+        raise RuntimeError(f'Failed to process audit logs: {str(e)}')
 
 def main():
     try:
