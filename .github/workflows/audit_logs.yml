@@ -44,13 +44,14 @@ jobs:
     
     - name: Run audit log export
       env:
-        CF_USERNAME: ${{ secrets.CLOUDGOV_USERNAME }}
-        CF_PASSWORD: ${{ secrets.CLOUDGOV_PASSWORD }}
+        CF_USERNAME: ${{ secrets.CF_USERNAME }}
+        CF_PASSWORD: ${{ secrets.CF_PASSWORD }}
       run: |
         # Add error handling
+        set -e  # Exit immediately if a command exits with a non-zero status
         python scripts/export_audit_logs.py
-        if [ $? -ne 0 ]; then
-          echo "Error: Failed to export audit logs"
+        if [ ! -f "exports/Events_$(date +'%Y-%m-%d').csv" ]; then
+          echo "Error: Audit log file was not created"
           exit 1
         fi
     
