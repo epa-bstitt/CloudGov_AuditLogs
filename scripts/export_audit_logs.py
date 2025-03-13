@@ -2,6 +2,7 @@
 
 import os
 import sys
+import json
 import subprocess
 import logging
 from datetime import datetime, timedelta
@@ -66,12 +67,38 @@ def get_audit_logs():
             # Write CSV header separator for Excel compatibility
             f.write('sep=,\n')
             
-            # Get events from cloud.gov
-            events_cmd = ['cf', 'events']
+            # Get events from cloud.gov using the API
+            events_cmd = ['cf', 'curl', f'/v3/audit_events?created_ats[gte]={last_week}T00:00:00Z']
             result = subprocess.run(events_cmd, capture_output=True, text=True, check=True)
             
-            # Write the output to file
-            f.write(result.stdout)
+            # Parse the JSON response and convert to CSV format
+            try:
+                events_data = json.loads(result.stdout)
+                if 'resources' in events_data:
+                    # Convert events to DataFrame
+                    events_list = []
+                    for event in events_data['resources']:
+                        event_dict = {
+                            'type': event['type'],
+                            'created_at': event['created_at'],
+                            'target_name': event['target'].get('name', ''),
+                            'target_type': event['target'].get('type', ''),
+                            'actor_name': event['actor'].get('name', ''),
+                            'actor_type': event['actor'].get('type', ''),
+                            'space_name': event.get('space', {}).get('name', ''),
+                            'org_name': event.get('organization', {}).get('name', '')
+                        }
+                        events_list.append(event_dict)
+                    
+                    # Create DataFrame and write to CSV
+                    events_df = pd.DataFrame(events_list)
+                    events_df.to_csv(f, index=False)
+                else:
+                    logger.warning('No events found in the response')
+                    f.write('No events found\n')
+            except json.JSONDecodeError as e:
+                logger.error(f'Failed to parse JSON response: {e}')
+                raise RuntimeError(f'Failed to parse JSON response: {e}')
         
         logger.info(f'Successfully exported audit logs to {filename}')
         return filename
